@@ -1,6 +1,6 @@
 {
   "name": "docusaurus-prince-individual-pdf",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "Extract rendered data from Docusaurus and generate PDF, the hard way, but with individual option",
   "main": "index.js",
   "bin": {
