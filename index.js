@@ -80,6 +80,10 @@ const argv = yargs(hideBin(process.argv))
     description: 'Specify the cookie with the domain part, e.g. --cookie="token=123456; domain=example.com;"',
     type: 'string',
   })
+  .option('individual', {
+    description: 'Generate a seperate document for each page found, do not generate a large file with all',
+    type: 'boolean'
+  })
   .help()
   .alias('help', 'h')
   .argv;
@@ -132,6 +136,33 @@ async function generatePdf(list, filename, cookie) {
   });
 }
 
+async function generateIndivPdf(list, cookie) {
+
+  for (const page in buffer) {
+    if (Object.hasOwnProperty.call(buffer, page)) {
+      const element = buffer[page];
+      const filepath = element.split('/').slice(3).join('/');
+
+      console.log(`Generating PDF ${filename}`);
+
+      const args = argv.princeArgs || '';
+      const cookieArg = cookie ? `--cookie "${cookie}"` : '';
+
+      const princeCmd = argv.princeDocker
+        ? `docker run --rm -i -v ${__dirname}:/config sparanoid/prince --no-warn-css --style=/config/print.css ${cookieArg} '${element}' -o '/config/${filepath}.pdf' ${args}`
+        : `prince --no-warn-css --style=${__dirname}print.css ${cookieArg} '${element}' -o './pdf/${filepath}.pdf' ${args}`;
+      console.log(`Executing command: ${princeCmd}`);
+      await execute(princeCmd).then(resp => {
+        console.log(resp.stdout);
+        console.log(`Done`);
+      }).catch(err => {
+        throw new Error(err);
+      });
+    }
+  }
+  
+}
+
 async function requestPage(url) {
   await got(url, {...gotOptions, cookieJar}).then(resp => {
     const dom = new JSDOM(resp.body);
@@ -169,7 +200,11 @@ async function requestPage(url) {
           }
 
           if (!argv.listOnly) {
-            generatePdf(listFile, pdfFile, argv.cookie);
+            if (argv.individual) {
+              generateIndivPdf(listFile, argv.cookie);
+            } else {
+              generatePdf(listFile, pdfFile, argv.cookie);
+            }
           }
         });
       } else {
@@ -184,7 +219,11 @@ async function requestPage(url) {
 !fs.existsSync(dest) && fs.mkdirSync(dest);
 
 if (argv.pdfOnly) {
-  generatePdf(listFile, pdfFile, argv.cookie);
+  if (argv.individual) {
+    generateIndivPdf(listFile, argv.cookie);
+  } else {
+    generatePdf(listFile, pdfFile, argv.cookie);
+  }
 } else {
 
   if (argv.prepend) {
